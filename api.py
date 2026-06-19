@@ -23,11 +23,12 @@ def fetch_daily_games():
     hoje = datetime.now(brt_tz).strftime('%Y-%m-%d')
     temporada = datetime.now(brt_tz).year
 
-    url = "https://v3.football.api-sports.io/fixtures"
+  url = "https://v3.football.api-sports.io/fixtures"
     querystring = {
         "date": hoje,
         "league": WORLD_CUP_LEAGUE_ID,
-        "season": temporada
+        "season": temporada,
+        "timezone": "America/Sao_Paulo" 
     }
 
     headers = {
