@@ -4,17 +4,16 @@ import requests
 import logging
 from datetime import datetime
 import pytz
-from dotenv import load_dotenv  # <-- Adicionado para ler o .env
+from dotenv import load_dotenv
 
 # Carrega as variáveis de ambiente (API KEY)
-load_dotenv()  # <-- Adicionado para ler o .env
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Configurações API
 API_KEY = os.getenv("API_FOOTBALL_KEY")
-API_HOST = "v3.football.api-sports.io"
 # ID 1 geralmente é a Copa do Mundo na API-Football
 WORLD_CUP_LEAGUE_ID = 1  
 
@@ -35,11 +34,9 @@ def fetch_daily_games():
         "timezone": "America/Sao_Paulo"
     }
 
-    # Cabeçalhos atualizados para aceitar tanto chave direta quanto chave do RapidAPI
+    # CABEÇALHO CORRIGIDO: Enviando apenas a chave oficial direta, sem conflitos!
     headers = {
-        "x-apisports-key": API_KEY,      # Chave do site direto (dashboard.api-football)
-        "x-rapidapi-key": API_KEY,       # Chave se você pegou no RapidAPI
-        "x-rapidapi-host": API_HOST
+        "x-apisports-key": API_KEY
     }
 
     try:
@@ -48,7 +45,7 @@ def fetch_daily_games():
             return False
 
         response = requests.get(url, headers=headers, params=querystring, timeout=15)
-        response.raise_for_status()
+        response.raise_for_status() # Isso aqui verifica se deu erro 403, 404, etc
         data = response.json()
         
         # Otimização: Salvar bruto apenas para backup em memória local
