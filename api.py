@@ -17,20 +17,18 @@ WORLD_CUP_LEAGUE_ID = 1
 def fetch_daily_games():
     logger.info("Iniciando requisição AUTOMÁTICA diária para a API-Football...")
     
-    # Fuso horário do Brasil
     brt_tz = pytz.timezone('America/Sao_Paulo')
     
-    # MODO AUTOMÁTICO: Pega sempre a data exata do momento em que rodar
+    # 🔴 MODO AUTOMÁTICO: Lê o relógio do Brasil e pega a data exata de HOJE!
     hoje_str = datetime.now(brt_tz).strftime('%Y-%m-%d')
-    temporada = datetime.now(brt_tz).year
     
     url = "https://v3.football.api-sports.io/fixtures"
     
+    # Busca apenas pela DATA ATUAL e pela LIGA (sem Season para não travar na API)
     querystring = {
         "date": hoje_str,
         "timezone": "America/Sao_Paulo",
-        "league": WORLD_CUP_LEAGUE_ID,
-        "season": temporada
+        "league": WORLD_CUP_LEAGUE_ID
     }
     
     headers = {"x-apisports-key": API_KEY}
@@ -40,7 +38,6 @@ def fetch_daily_games():
         response.raise_for_status()
         data = response.json()
         
-        # Salva o resultado (mesmo que seja 0, para apagar os jogos do dia anterior)
         with open("jogos.json", "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
             
