@@ -15,19 +15,22 @@ API_KEY = os.getenv("API_FOOTBALL_KEY")
 WORLD_CUP_LEAGUE_ID = 1  
 
 def fetch_daily_games():
-    logger.info("Iniciando requisição FINAL diária para a API-Football...")
+    logger.info("Iniciando requisição AUTOMÁTICA diária para a API-Football...")
     
-    # MODO TESTE (Mantendo o dia 19 para você ver o jogo no Telegram)
-    hoje_str = "2026-06-19"
+    # Fuso horário do Brasil
+    brt_tz = pytz.timezone('America/Sao_Paulo')
+    
+    # MODO AUTOMÁTICO: Pega sempre a data exata do momento em que rodar
+    hoje_str = datetime.now(brt_tz).strftime('%Y-%m-%d')
+    temporada = datetime.now(brt_tz).year
     
     url = "https://v3.football.api-sports.io/fixtures"
     
-    # O SEGREDO ESTÁ AQUI: 
-    # Removemos o "season". Buscamos SÓ pela data e pela liga!
     querystring = {
         "date": hoje_str,
         "timezone": "America/Sao_Paulo",
-        "league": WORLD_CUP_LEAGUE_ID
+        "league": WORLD_CUP_LEAGUE_ID,
+        "season": temporada
     }
     
     headers = {"x-apisports-key": API_KEY}
@@ -37,6 +40,7 @@ def fetch_daily_games():
         response.raise_for_status()
         data = response.json()
         
+        # Salva o resultado (mesmo que seja 0, para apagar os jogos do dia anterior)
         with open("jogos.json", "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
             
