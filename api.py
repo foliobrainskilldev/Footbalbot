@@ -15,20 +15,18 @@ API_KEY = os.getenv("API_FOOTBALL_KEY")
 WORLD_CUP_LEAGUE_ID = 1  
 
 def fetch_daily_games():
-    logger.info("Iniciando requisição AUTOMÁTICA diária para a API-Football...")
+    logger.info("Iniciando requisição AUTOMÁTICA GLOBLAL diária...")
     
     brt_tz = pytz.timezone('America/Sao_Paulo')
-    
-    # 🔴 MODO AUTOMÁTICO: Lê o relógio do Brasil e pega a data exata de HOJE!
     hoje_str = datetime.now(brt_tz).strftime('%Y-%m-%d')
     
     url = "https://v3.football.api-sports.io/fixtures"
     
-    # Busca apenas pela DATA ATUAL e pela LIGA (sem Season para não travar na API)
+    # BUSCA GLOBAL: Pede TODOS os jogos do mundo hoje
+    # Burlamos o erro de "Season" da API pedindo apenas a data.
     querystring = {
         "date": hoje_str,
-        "timezone": "America/Sao_Paulo",
-        "league": WORLD_CUP_LEAGUE_ID
+        "timezone": "America/Sao_Paulo"
     }
     
     headers = {"x-apisports-key": API_KEY}
@@ -38,10 +36,22 @@ def fetch_daily_games():
         response.raise_for_status()
         data = response.json()
         
+        todos_os_jogos = data.get('response', [])
+        
+        # FILTRO LOCAL: Separamos APENAS os jogos da Copa do Mundo (ID 1)
+        jogos_copa = []
+        for jogo in todos_os_jogos:
+            if jogo.get('league', {}).get('id') == WORLD_CUP_LEAGUE_ID:
+                jogos_copa.append(jogo)
+                
+        # Atualiza o JSON apenas com os jogos da Copa de hoje
+        data['response'] = jogos_copa
+        data['results'] = len(jogos_copa)
+        
         with open("jogos.json", "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
             
-        logger.info(f"Sucesso! {data.get('results', 0)} jogos salvos no jogos.json para o dia {hoje_str}.")
+        logger.info(f"Sucesso! Encontrados {len(todos_os_jogos)} jogos no mundo. {data['results']} são da Copa do Mundo para HOJE ({hoje_str}).")
         return True
 
     except Exception as e:
