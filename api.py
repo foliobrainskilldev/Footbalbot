@@ -2,7 +2,7 @@ import os
 import json
 import requests
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 import pytz
 from dotenv import load_dotenv
 
@@ -16,24 +16,21 @@ API_KEY = os.getenv("API_FOOTBALL_KEY")
 WORLD_CUP_LEAGUE_ID = 1  
 
 def fetch_daily_games():
-    logger.info("Iniciando requisição à API-Football com busca inteligente...")
+    logger.info("Iniciando requisição suprema à API-Football (Tabela Completa)...")
     
     # Define o fuso horário do Brasil
     brt_tz = pytz.timezone('America/Sao_Paulo')
     hoje_obj = datetime.now(brt_tz)
-    
     hoje_str = hoje_obj.strftime('%Y-%m-%d')
-    amanha_str = (hoje_obj + timedelta(days=1)).strftime('%Y-%m-%d')
     temporada = hoje_obj.year
 
     url = "https://v3.football.api-sports.io/fixtures"
     
-    # BUSCA INTELIGENTE: Pede 2 dias para não perder os jogos da madrugada no servidor deles
+    # ESTRATÉGIA MESTRA: Pedimos TODOS os jogos da Copa do Mundo (1 única requisição)
+    # Isso burla o bug de UTC do servidor da API-Football
     querystring = {
         "league": WORLD_CUP_LEAGUE_ID,
         "season": temporada,
-        "from": hoje_str,
-        "to": amanha_str,
         "timezone": "America/Sao_Paulo"
     }
 
@@ -50,23 +47,30 @@ def fetch_daily_games():
         response.raise_for_status()
         data = response.json()
         
-        # FILTRO INTELIGENTE: Pega os 2 dias da API, mas salva SÓ os que caem "hoje" no horário BRT
+        # FILTRO LOCAL: O próprio Python separa apenas os jogos de "hoje" no Brasil
         jogos_de_hoje = []
-        for jogo in data.get('response', []):
-            # A API devolve algo como "2026-06-19T21:30:00-03:00". Pegamos só os 10 primeiros caracteres (A data)
-            data_do_jogo_brt = jogo['fixture']['date'][:10]
+        todos_os_jogos = data.get('response', [])
+        
+        for jogo in todos_os_jogos:
+            # Evita erros caso algum jogo da tabela ainda esteja sem data definida (TBD)
+            fixture = jogo.get('fixture', {})
+            data_str = fixture.get('date', '')
             
-            if data_do_jogo_brt == hoje_str:
-                jogos_de_hoje.append(jogo)
+            # Pega os 10 primeiros caracteres do horário BRT (Ex: "2026-06-19")
+            if len(data_str) >= 10:
+                data_do_jogo_brt = data_str[:10]
                 
-        # Substitui os resultados da API apenas pela lista filtrada de hoje
+                if data_do_jogo_brt == hoje_str:
+                    jogos_de_hoje.append(jogo)
+                
+        # Substitui a lista gigante de 104 jogos apenas pelos de hoje
         data['response'] = jogos_de_hoje
         data['results'] = len(jogos_de_hoje)
 
         with open("jogos.json", "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
             
-        logger.info(f"Sucesso! {data['results']} jogo(s) filtrado(s) perfeitamente para HOJE e salvos.")
+        logger.info(f"Sucesso absoluto! {data['results']} jogo(s) filtrado(s) perfeitamente para HOJE e salvos.")
         return True
 
     except Exception as e:
