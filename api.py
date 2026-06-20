@@ -4,6 +4,10 @@ import requests
 import logging
 from datetime import datetime
 import pytz
+from dotenv import load_dotenv  # <-- Adicionado para ler o .env
+
+# Carrega as variáveis de ambiente (API KEY)
+load_dotenv()  # <-- Adicionado para ler o .env
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -11,7 +15,7 @@ logger = logging.getLogger(__name__)
 # Configurações API
 API_KEY = os.getenv("API_FOOTBALL_KEY")
 API_HOST = "v3.football.api-sports.io"
-# ID 1 geralmente é a Copa do Mundo na API-Football (ajuste conforme o ano da temporada)
+# ID 1 geralmente é a Copa do Mundo na API-Football
 WORLD_CUP_LEAGUE_ID = 1  
 
 def fetch_daily_games():
@@ -28,15 +32,21 @@ def fetch_daily_games():
         "date": hoje,
         "league": WORLD_CUP_LEAGUE_ID,
         "season": temporada,
-        "timezone": "America/Sao_Paulo"  # <-- Correção do fuso horário aplicada
+        "timezone": "America/Sao_Paulo"
     }
 
+    # Cabeçalhos atualizados para aceitar tanto chave direta quanto chave do RapidAPI
     headers = {
-        "x-rapidapi-key": API_KEY,
+        "x-apisports-key": API_KEY,      # Chave do site direto (dashboard.api-football)
+        "x-rapidapi-key": API_KEY,       # Chave se você pegou no RapidAPI
         "x-rapidapi-host": API_HOST
     }
 
     try:
+        if not API_KEY:
+            logger.error("A CHAVE DA API ESTÁ VAZIA! Verifique seu arquivo .env")
+            return False
+
         response = requests.get(url, headers=headers, params=querystring, timeout=15)
         response.raise_for_status()
         data = response.json()
@@ -50,9 +60,7 @@ def fetch_daily_games():
 
     except Exception as e:
         logger.error(f"Erro ao buscar jogos da API: {e}")
-        # Como fallback, mantém o arquivo jogos.json antigo sem sobrescrever
         return False
 
-# <-- GATILHO ADICIONADO PARA TESTE MANUAL -->
 if __name__ == "__main__":
     fetch_daily_games()
