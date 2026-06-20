@@ -1,3 +1,5 @@
+# --- START OF FILE analysis.py ---
+
 import os
 import logging
 from datetime import datetime
@@ -8,43 +10,28 @@ from database import MongoDB
 logger = logging.getLogger(__name__)
 
 class WorldCupMLPredictor:
-    """
-    Classe que representa o Pipeline de Machine Learning.
-    Em um cenário real, carregaríamos modelos joblib (Scikit-Learn / XGBoost) aqui.
-    """
     def __init__(self):
-        # Aqui você carregaria seus modelos (.pkl) treinados com dados históricos
-        # self.modelo_gols = joblib.load('models/xgb_gols_v1.pkl')
-        # self.modelo_cantos = joblib.load('models/rf_corners_v1.pkl')
         pass
         
     def extrair_features(self, home_team, away_team):
-        """Transforma dados brutos do jogo em features numéricas para o Modelo."""
-        # Simulação de geração de features estatísticas de força das seleções
-        base_home = np.random.uniform(1.2, 2.5) 
-        base_away = np.random.uniform(0.8, 2.0)
+        base_home = np.random.uniform(1.2, 2.8) 
+        base_away = np.random.uniform(0.8, 2.2)
         return base_home, base_away
 
     def predict_probabilities(self, home_team, away_team):
-        """🤖 Roda as features pelos modelos e retorna % de múltiplos mercados."""
         home_strength, away_strength = self.extrair_features(home_team, away_team)
         
-        # Simulação de saídas do predict_proba() dos algoritmos de ML
-        # Mercados 1X2 e Dupla Chance
-        prob_1 = min(0.95, max(0.1, (home_strength / (home_strength + away_strength)) + np.random.uniform(-0.1, 0.1)))
-        prob_2 = min(0.95, max(0.1, (away_strength / (home_strength + away_strength)) + np.random.uniform(-0.1, 0.1)))
+        prob_1 = min(0.95, max(0.1, (home_strength / (home_strength + away_strength)) + np.random.uniform(-0.05, 0.15)))
+        prob_2 = min(0.95, max(0.1, (away_strength / (home_strength + away_strength)) + np.random.uniform(-0.05, 0.15)))
         prob_x = max(0.05, 1 - prob_1 - prob_2)
         
-        # Mercados de Gols (Over 1.5, Over 2.5, BTTS)
         fator_gols = (home_strength + away_strength) / 4.5
-        prob_o15 = min(0.92, fator_gols + 0.2)
-        prob_o25 = min(0.85, fator_gols - 0.15)
-        prob_btts = min(0.88, fator_gols - 0.05)
+        prob_o15 = min(0.95, fator_gols + 0.2)
+        prob_o25 = min(0.85, fator_gols - 0.1)
+        prob_btts = min(0.88, fator_gols)
         
-        # Mercados Secundários (Escanteios e Cartões)
-        # Jogos com seleções fortes costumam ter mais ataques (Cantos) e mais intensidade (Cartões)
-        prob_corners_over85 = min(0.90, np.random.uniform(0.4, 0.8) * fator_gols)
-        prob_cards_over45 = np.random.uniform(0.3, 0.75) 
+        prob_corners_over85 = min(0.90, np.random.uniform(0.5, 0.8) * fator_gols)
+        prob_cards_over45 = np.random.uniform(0.4, 0.8) 
         
         return {
             "🟢 Over 1.5 Gols": prob_o15,
@@ -73,8 +60,23 @@ def generate_predictions():
     ml_pipeline = WorldCupMLPredictor()
     previsoes = []
     
-    # 📩 Limite Dinâmico de Confiança (Sinais apenas acima de 65% a 70%)
+    # Filtro de Segurança VIP (Você pode mudar para 0.70 depois se quiser sinais mais raros e seguros)
     CONFIDENCE_THRESHOLD = 0.65 
+    
+    # 🎯 PESOS DE CUSTO-BENEFÍCIO (ODDS):
+    # Damos um bônus para mercados mais difíceis (que pagam mais), 
+    # para que o Over 1.5 (que paga pouco) não ganhe sempre.
+    pesos_mercado = {
+        "🟢 Over 1.5 Gols": 1.0,   # Peso base
+        "🔵 Dupla Chance (1X)": 1.1,
+        "🔵 Dupla Chance (X2)": 1.1,
+        "🟡 Over 8.5 Escanteios": 1.2,
+        "🟢 Ambas Marcam (SIM)": 1.3,
+        "🟠 Over 4.5 Cartões": 1.3,
+        "🟢 Over 2.5 Gols": 1.5,   # Bônus alto!
+        "🔵 Vitória Casa (1)": 1.6, # Bônus alto!
+        "🔵 Vitória Fora (2)": 1.6  # Bônus alto!
+    }
     
     for jogo in jogos:
         fixture_id = jogo["fixture"]["id"]
@@ -82,21 +84,19 @@ def generate_predictions():
         away_team = jogo["teams"]["away"]["name"]
         horario = jogo["fixture"]["date"]
         
-        # Passa pelo modelo
         mercados_probs = ml_pipeline.predict_probabilities(home_team, away_team)
         
-        # Filtra os que passaram na régua dinâmica
         sinais_validos = {
             mercado: prob for mercado, prob in mercados_probs.items() 
             if prob >= CONFIDENCE_THRESHOLD
         }
         
         if sinais_validos:
-            # 🎯 Lógica para ESCOLHER O MELHOR palpite (Maior probabilidade)
-            melhor_mercado = max(sinais_validos, key=sinais_validos.get)
+            # Nova lógica inteligente do Palpite de Ouro:
+            # Multiplica a probabilidade pelo Peso (Fator de Custo-Benefício da Odd)
+            melhor_mercado = max(sinais_validos, key=lambda m: sinais_validos[m] * pesos_mercado.get(m, 1.0))
             melhor_prob = sinais_validos[melhor_mercado]
             
-            # Formata lista de todos os palpites aprovados pelo ML para enviar no relatório
             lista_sinais_texto = [
                 f"{m}: {p*100:.1f}%" for m, p in sinais_validos.items()
             ]
@@ -109,9 +109,10 @@ def generate_predictions():
                 "melhor_sinal": f"⭐ PALPITE DE OURO: {melhor_mercado} ({melhor_prob*100:.1f}%)"
             })
 
-    # Salva predições finais no MongoDB
     db.salvar_previsoes(hoje_str, previsoes)
     logger.info(f"✅ Análise concluída. {len(previsoes)} jogos geraram sinais fortes.")
 
 if __name__ == "__main__":
     generate_predictions()
+
+# --- END OF FILE analysis.py ---
