@@ -2,7 +2,7 @@ import os
 import json
 import requests
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 from dotenv import load_dotenv
 
@@ -12,47 +12,61 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Configurações API
 API_KEY = os.getenv("API_FOOTBALL_KEY")
-# ID 1 geralmente é a Copa do Mundo na API-Football
 WORLD_CUP_LEAGUE_ID = 1  
 
 def fetch_daily_games():
-    """Busca os jogos do dia atual com exatidão de 1 requisição"""
-    logger.info("Iniciando requisição única diária para a API-Football...")
+    logger.info("Iniciando requisição à API-Football com busca inteligente...")
     
-    # Horário BRT para buscar o dia correto do Brasil
+    # Define o fuso horário do Brasil
     brt_tz = pytz.timezone('America/Sao_Paulo')
-    hoje = datetime.now(brt_tz).strftime('%Y-%m-%d')
-    temporada = datetime.now(brt_tz).year
+    hoje_obj = datetime.now(brt_tz)
+    
+    hoje_str = hoje_obj.strftime('%Y-%m-%d')
+    amanha_str = (hoje_obj + timedelta(days=1)).strftime('%Y-%m-%d')
+    temporada = hoje_obj.year
 
     url = "https://v3.football.api-sports.io/fixtures"
+    
+    # BUSCA INTELIGENTE: Pede 2 dias para não perder os jogos da madrugada no servidor deles
     querystring = {
-        "date": hoje,
         "league": WORLD_CUP_LEAGUE_ID,
         "season": temporada,
+        "from": hoje_str,
+        "to": amanha_str,
         "timezone": "America/Sao_Paulo"
     }
 
-    # CABEÇALHO CORRIGIDO: Enviando apenas a chave oficial direta, sem conflitos!
     headers = {
         "x-apisports-key": API_KEY
     }
 
     try:
         if not API_KEY:
-            logger.error("A CHAVE DA API ESTÁ VAZIA! Verifique seu arquivo .env")
+            logger.error("A CHAVE DA API ESTÁ VAZIA!")
             return False
 
         response = requests.get(url, headers=headers, params=querystring, timeout=15)
-        response.raise_for_status() # Isso aqui verifica se deu erro 403, 404, etc
+        response.raise_for_status()
         data = response.json()
         
-        # Otimização: Salvar bruto apenas para backup em memória local
+        # FILTRO INTELIGENTE: Pega os 2 dias da API, mas salva SÓ os que caem "hoje" no horário BRT
+        jogos_de_hoje = []
+        for jogo in data.get('response', []):
+            # A API devolve algo como "2026-06-19T21:30:00-03:00". Pegamos só os 10 primeiros caracteres (A data)
+            data_do_jogo_brt = jogo['fixture']['date'][:10]
+            
+            if data_do_jogo_brt == hoje_str:
+                jogos_de_hoje.append(jogo)
+                
+        # Substitui os resultados da API apenas pela lista filtrada de hoje
+        data['response'] = jogos_de_hoje
+        data['results'] = len(jogos_de_hoje)
+
         with open("jogos.json", "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
             
-        logger.info(f"Requisição bem-sucedida. {data.get('results', 0)} jogos encontrados e salvos em jogos.json.")
+        logger.info(f"Sucesso! {data['results']} jogo(s) filtrado(s) perfeitamente para HOJE e salvos.")
         return True
 
     except Exception as e:
