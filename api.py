@@ -26,12 +26,9 @@ def fetch_daily_games():
 
     url = "https://v3.football.api-sports.io/fixtures"
     
-    # ESTRATÉGIA MESTRA: Pedimos TODOS os jogos da Copa do Mundo (1 única requisição)
-    # Isso burla o bug de UTC do servidor da API-Football
     querystring = {
         "league": WORLD_CUP_LEAGUE_ID,
-        "season": temporada,
-        "timezone": "America/Sao_Paulo"
+        "season": temporada
     }
 
     headers = {
@@ -47,23 +44,23 @@ def fetch_daily_games():
         response.raise_for_status()
         data = response.json()
         
-        # FILTRO LOCAL: O próprio Python separa apenas os jogos de "hoje" no Brasil
         jogos_de_hoje = []
         todos_os_jogos = data.get('response', [])
         
         for jogo in todos_os_jogos:
-            # Evita erros caso algum jogo da tabela ainda esteja sem data definida (TBD)
             fixture = jogo.get('fixture', {})
-            data_str = fixture.get('date', '')
+            # PEGANDO O RELÓGIO UNIVERSAL (TIMESTAMP) EM VEZ DO TEXTO
+            timestamp = fixture.get('timestamp')
             
-            # Pega os 10 primeiros caracteres do horário BRT (Ex: "2026-06-19")
-            if len(data_str) >= 10:
-                data_do_jogo_brt = data_str[:10]
+            if timestamp:
+                # CONVERSÃO ABSOLUTA: Converte os segundos para o horário/data real do Brasil
+                dt_jogo_brt = datetime.fromtimestamp(timestamp, brt_tz)
+                data_do_jogo_brt = dt_jogo_brt.strftime('%Y-%m-%d')
                 
+                # Agora sim, se a data convertida for dia 19, ele vai salvar!
                 if data_do_jogo_brt == hoje_str:
                     jogos_de_hoje.append(jogo)
                 
-        # Substitui a lista gigante de 104 jogos apenas pelos de hoje
         data['response'] = jogos_de_hoje
         data['results'] = len(jogos_de_hoje)
 
