@@ -67,15 +67,15 @@ def generate_predictions():
     # Damos um bônus para mercados mais difíceis (que pagam mais), 
     # para que o Over 1.5 (que paga pouco) não ganhe sempre.
     pesos_mercado = {
-        "🟢 Over 1.5 Gols": 1.0,   # Peso base
+        "🟢 Over 1.5 Gols": 0.6,   # Peso base
         "🔵 Dupla Chance (1X)": 1.1,
         "🔵 Dupla Chance (X2)": 1.1,
         "🟡 Over 8.5 Escanteios": 1.2,
         "🟢 Ambas Marcam (SIM)": 1.3,
         "🟠 Over 4.5 Cartões": 1.3,
-        "🟢 Over 2.5 Gols": 1.5,   # Bônus alto!
-        "🔵 Vitória Casa (1)": 1.6, # Bônus alto!
-        "🔵 Vitória Fora (2)": 1.6  # Bônus alto!
+        "🟢 Over 2.5 Gols": 1.8,   # Bônus alto!
+        "🔵 Vitória Casa (1)": 2.0, # Bônus alto!
+        "🔵 Vitória Fora (2)": 2.0  # Bônus alto!
     }
     
     for jogo in jogos:
